@@ -130,31 +130,23 @@ describe('GET /tasks?page=&limit=', () => {
     }
   });
 
-  /**
-   * BUG: page=1 with limit=5 should return items 1-5, but because
-   * getPaginated uses offset = page * limit (instead of (page-1)*limit),
-   * it returns items 6-10.
-   */
-  it('BUG: page 1 returns wrong items (off-by-one in offset)', async () => {
+  it('FIXED: page 1 returns first items', async () => {
     const res = await request(app).get('/tasks?page=1&limit=5');
     expect(res.status).toBe(200);
-    // With bug: offset=5, returns items 6-10
     expect(res.body).toHaveLength(5);
-    expect(res.body[0].title).toBe('Task 6'); // BUG: should be 'Task 1'
+    expect(res.body[0].title).toBe('Task 1');
   });
 
   it('returns remaining items on last page', async () => {
-    // page=2, limit=5 → offset=10, items 11-12
-    const res = await request(app).get('/tasks?page=2&limit=5');
+    // page=3, limit=5 → offset=10, items 11-12
+    const res = await request(app).get('/tasks?page=3&limit=5');
     expect(res.body).toHaveLength(2);
   });
 
   it('defaults page to 1 and limit to 10 when not provided as numbers', async () => {
     const res = await request(app).get('/tasks?page=abc&limit=xyz');
     expect(res.status).toBe(200);
-    // parseInt('abc') → NaN → || 1, parseInt('xyz') → NaN → || 10
-    // then getPaginated(1, 10) → offset=10, returns items 11-12 (bug)
-    expect(res.body).toHaveLength(2);
+    expect(res.body).toHaveLength(10);
   });
 });
 
@@ -305,6 +297,38 @@ describe('GET /tasks/stats', () => {
 
     const res = await request(app).get('/tasks/stats');
     expect(res.body.overdue).toBe(1);
+  });
+});
+
+// ─── PATCH /tasks/:id/assign ──────────────────────────────────────────────────
+
+describe('PATCH /tasks/:id/assign', () => {
+  it('assigns a task and returns the updated task', async () => {
+    const created = await request(app).post('/tasks').send({ title: 'New Task' });
+    const res = await request(app)
+      .patch(`/tasks/${created.body.id}/assign`)
+      .send({ assignee: 'Alice' });
+      
+    expect(res.status).toBe(200);
+    expect(res.body.assignee).toBe('Alice');
+  });
+  
+  it('returns 400 if assignee is missing or empty string', async () => {
+    const created = await request(app).post('/tasks').send({ title: 'New Task' });
+    let res = await request(app)
+      .patch(`/tasks/${created.body.id}/assign`)
+      .send({});
+    expect(res.status).toBe(400);
+
+    res = await request(app)
+      .patch(`/tasks/${created.body.id}/assign`)
+      .send({ assignee: '   ' });
+    expect(res.status).toBe(400);
+  });
+  
+  it('returns 404 for non-existent id', async () => {
+    const res = await request(app).patch('/tasks/nonexistent/assign').send({ assignee: 'Alice' });
+    expect(res.status).toBe(404);
   });
 });
 

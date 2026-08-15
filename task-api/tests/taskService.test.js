@@ -122,22 +122,12 @@ describe('taskService.getPaginated', () => {
     }
   });
 
-  /**
-   * BUG: getPaginated calculates offset as `page * limit` instead of
-   * `(page - 1) * limit`. When the route passes page=1, the first `limit`
-   * items are skipped entirely.
-   *
-   * page=1, limit=10 → offset = 1*10 = 10 → returns items 11-15 (5 items)
-   *   Expected: items 1-10
-   */
-  it('BUG: page 1 skips the first `limit` items due to wrong offset calc', () => {
+  it('FIXED: page 1 returns first `limit` items', () => {
     const page1 = taskService.getPaginated(1, 10);
-    // With the bug: offset = 1*10 = 10, so we get items 11-15 (only 5)
-    expect(page1).toHaveLength(5); // BUG: should be 10
+    expect(page1).toHaveLength(10);
   });
 
-  it('returns correct number of items for page 2 limit 5 (if offset bug is considered)', () => {
-    // page=2, limit=5 → offset = 2*5=10 → items 11-15 (5 items)
+  it('returns correct number of items for page 2 limit 5', () => {
     const page2 = taskService.getPaginated(2, 5);
     expect(page2).toHaveLength(5);
   });
